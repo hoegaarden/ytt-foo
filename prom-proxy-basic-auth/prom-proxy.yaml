@@ -1,0 +1,150 @@
+apiVersion: kappctrl.k14s.io/v1alpha1
+kind: App
+metadata:
+  name: prom-proxy
+  namespace: tanzu-system-monitoring
+spec:
+  deploy:
+  - kapp:
+      rawOptions:
+      - --wait-timeout=5m
+  fetch:
+  - inline:
+      paths:
+        deployment.yaml: |
+          #@ load("@ytt:data", "data")
+          #@ load("@ytt:base64", "base64")
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: prom-proxy-htpasswd
+            labels:
+              app: prom-proxy
+          data:
+            htpasswd: #@ base64.encode(data.values.htpasswd)
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: prom-proxy-tls
+            labels:
+              app: prom-proxy
+          type: kubernetes.io/tls
+          data:
+            tls.crt: #@ base64.encode(data.values.tls.crt)
+            ca.crt:  #@ base64.encode(data.values.tls.ca)
+            tls.key: #@ base64.encode(data.values.tls.key)
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: prom-proxy
+            labels:
+              app: prom-proxy
+          spec:
+            replicas: #@ data.values.replicas
+            selector:
+              matchLabels:
+                app: prom-proxy
+            template:
+              metadata:
+                labels:
+                  app: prom-proxy
+              spec:
+                containers:
+                - image: #@ data.values.image
+                  name: prom-proxy
+                  volumeMounts:
+                  - name: conf-d
+                    mountPath: /etc/nginx/conf.d/
+                  - name: htpasswd
+                    mountPath: /etc/nginx/.htpasswd
+                    subPath: htpasswd
+                volumes:
+                - name: htpasswd
+                  secret:
+                    secretName: prom-proxy-htpasswd
+                - name: conf-d
+                  configMap:
+                    name: prom-proxy-config
+          ---
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: prom-proxy-config
+            labels:
+              app: prom-proxy
+          data:
+            server.conf: |
+              server {
+                listen       8080;
+                server_name  _;
+
+                location / {
+                  proxy_pass http://prometheus-server:80/;
+                  auth_basic "Login";
+                  auth_basic_user_file ".htpasswd";
+                }
+              }
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: prom-proxy
+            labels:
+              app: prom-proxy
+          spec:
+            ports:
+            - port: 8080
+              protocol: TCP
+              targetPort: 8080
+            selector:
+              app: prom-proxy
+            type: ClusterIP
+          ---
+          apiVersion: projectcontour.io/v1
+          kind: HTTPProxy
+          metadata:
+            name: prom-proxy
+            labels:
+              app: prom-proxy
+          spec:
+            virtualhost:
+              fqdn: #@ data.values.fqdn
+              tls:
+                secretName: prom-proxy-tls
+            routes:
+              - conditions:
+                - prefix: /
+                services:
+                - name: prom-proxy
+                  port: 8080
+  serviceAccountName: prometheus-extension-sa
+  syncPeriod: 5m0s
+  template:
+  - ytt:
+      ignoreUnknownComments: true
+      inline:
+        paths:
+          values.yaml: |
+            #@data/values
+            ---
+            replicas: 1
+            fqdn: prom.cluster1.thingamaji.ga
+            image: nginxinc/nginx-unprivileged
+            htpasswd: |
+              admin:$apr1$bOFkAjU6$5m43/cKYD3oETdXxh3BIA1
+            # openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
+            #   -keyout /dev/stdout -out /dev/stdout \
+            #   -subj "/C=AT/L=Vienna/O=thigamaji.ga/OU=IT/CN=prom-proxy.cluster1.thingamaji.ga"
+            tls:
+              crt: &cert |
+                -----BEGIN CERTIFICATE-----
+                  ... blipp blupp blapp ...
+                -----END CERTIFICATE-----
+              ca: *cert
+              key: |
+                -----BEGIN PRIVATE KEY-----
+                  ... blapp blupp blipp ...
+                -----END PRIVATE KEY-----
