@@ -50,7 +50,7 @@ To do all the above mentioned mangling, you can use another templating step:
              - secretRef:
                  name: prometheus-data-values
 +    - ytt:
-+        inlines:
++        inline:
 +          paths:
 +            overlay.yaml: |
 +              #@ load("@ytt:overlay", "overlay")
@@ -106,7 +106,7 @@ To do all the above mentioned mangling, you can use another templating step:
 +              #@ end
 +
 +              #@ expressionSearch = '{'
-+              #@ expressionReplace = '{{{k}="{v}",'.format(clusterLabelName, localClusterName)
++              #@ expressionReplace = '{{{k}="{v}",'.format(k=clusterLabelName, v=localClusterName)
 +
 +              #! Add a label to all 'local' recording rules, with the local cluster name
 +              #! Patch the rule expressions, so they only consider 'local' metrics
