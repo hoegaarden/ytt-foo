@@ -1,0 +1,24 @@
+kind: things
+spec:
+  yaml_thing: |
+    - name: one
+      value: this is a
+    - name: two
+      vaule: yaml structure encoded as a string because why not
+    - name: three
+      value: and we messed with it!
+  json_thing: '["every","one","hates","json","jk, we all love json"]'
+  b64yaml: LSAnc29tZSA6OiAxJwotICdzb21lIDo6IDQnCi0gJ3NvbWUgOjogNycKLSAnc29tZSA6OiAxMCcKLSAnc29tZSA6OiAxMycKLSAnc29tZSA6OiAxNicK
+  plain:
+  - 'some :: 21'
+  - 'some :: 23'
+  - 'some :: 25'
+  - 'appended :: 42'
+  b64yml_to_plain:
+  - 'some :: 1'
+  - 'some :: 4'
+  - 'some :: 7'
+  - 'some :: 10'
+  - 'some :: 13'
+  - 'some :: 16'
+  - 'appended :: this is actual yaml now'

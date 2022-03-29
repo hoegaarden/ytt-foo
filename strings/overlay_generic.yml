@@ -1,0 +1,127 @@
+#@ load("@ytt:json", "json")
+#@ load("@ytt:yaml", "yaml")
+#@ load("@ytt:base64", "base64")
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:template", "template")
+
+
+#! This is a generator which can be used to create functions which in turn are
+#! meant to be used in '#@overlay/replace via=<func>'
+#! This generator can take 3 (named) arguments:
+#!   fn:
+#!     a function that is called with the left and the right side
+#!     this defaults to `overlay.apply`
+#!   codecs:
+#!     a list of "codecs"
+#!     before running `fn`, the left side is ran through all codecs, in order
+#!     then `fn` is ran with the mutated left side and the original right side
+#!     the result of `fn` is run again through the codecs in reverse order before returning the result
+#!   codecs_enc:
+#!     a list of "codecs" that are used to encode, after `fn` has ran
+#!     with this, the codec pipeline can be made asymmetrics, e.g.
+#!     inout can be base64 yaml, but the output will be json
+#! What is a codec?
+#!   Anything that has a `encode` and `decode` method
+#!   Most prominent examples are `yaml`, `json`, `base64`, `toml` from ytt's stdlib
+#! What can I do with that?
+#!   You can apply overlays to a yaml doc, that has been stringifiied and then base64 encoded
+#!     #@overlay/replace via=apply(codecs=[base64,yaml])
+
+#@ def apply(fn=overlay.apply, codecs=[], codecs_enc=None):
+#@   def _(l, r):
+#@     decoded = l
+#@
+#@     for c in codecs:
+#@       decoded = c.decode(decoded)
+#@     end
+#@
+#@     encoded = fn(decoded, r)
+#@
+#@     if codecs_enc == None:
+#@       codecs_to_encode = reversed(codecs)
+#@     else:
+#@       codecs_to_encode = codecs_enc
+#@     end
+#@
+#@     for c in codecs_to_encode:
+#@       encoded = c.encode(encoded)
+#@     end
+#@
+#@     return encoded
+#@   end
+#@
+#@   return _
+#@ end
+
+#! Here we execute some overlays against strings, one of which is a
+#! json document, the other onde is a yaml document
+#! In addition, we also add a new node, which we will mangle with in
+#! the next overlay step
+
+#@overlay/match by=overlay.subset({"kind":"things"})
+---
+spec:
+  #@overlay/replace via=apply(codecs=[yaml])
+  yaml_thing:
+    #@overlay/append
+    - name: three
+      value: "and we messed with it!"
+
+  #@overlay/replace via=apply(codecs=[json])
+  json_thing:
+    #@overlay/match by=overlay.index(2)
+    - "hates"
+
+    #@overlay/append
+    - "jk, we all love json"
+
+  #@overlay/match missing_ok=True
+  b64yaml: &b64 c3RhcnQ6IDEKZW5kOiAxNwpzdGVwOiAzCg==  #! echo $'start: 1\nend: 17\nstep: 3' | base64
+
+  #@overlay/match missing_ok=True
+  plain:
+    start: 21
+    end:   26
+    step:  2
+
+  #@overlay/match missing_ok=True
+  b64yml_to_plain: *b64
+
+
+#@ def someFuncDoingThings(l, r):
+#@   res = []
+#@   for x in range(l["start"], l["end"], l["step"]):
+#@     res.append(
+#@       "some :: {}".format(x)
+#@     )
+#@   end
+#@   if r:
+#@     res.append("appended :: {}".format(r["append"]))
+#@   end
+#@   return res
+#@ end
+
+
+#! Here we are using the apply fuction to to run a random function against the
+#! left side.
+#! First we do that on a base64 encodes stringified yaml, showing a chain of
+#! codecs.
+#! In the second example, we run the same function, but without any codec, this
+#! also works.
+#! And in the third example, we read a base64'ed yaml string, run a function
+#! against it and return it as a plain node, we don't do any encoding "on the
+#! way back".
+
+#@overlay/match by=overlay.subset({"kind":"things"})
+---
+spec:
+  #@overlay/replace via=apply(someFuncDoingThings, codecs=[base64,yaml])
+  b64yaml:
+
+  #@overlay/replace via=apply(someFuncDoingThings)
+  plain:
+    append: 42
+
+  #@overlay/replace via=apply(someFuncDoingThings, codecs=[base64,yaml], codecs_enc=[])
+  b64yml_to_plain:
+    append: this is actual yaml now

@@ -27,3 +27,14 @@ ytt -f input.yml -f overlay.yml
 Note that in the input all leaf nodes are strings, so are all leaves of the
 output. But we were still able to run our overlay against the sring encoded
 values.
+
+## Alternative, generic approach
+
+In [overlay_generic.yml] we have `apply` which returns
+another function to be used with `@#overlay/replace via=...`. It can take
+multiple codec, which allows you to e.g. transparently first base64 decode, then
+yaml decode and then run either a function or a overlay against the left side.
+
+For more docs and examples, see the [overlay_generic.yml] file.
+
+[overlay_generic.yml]: ./overlay_generic.yml
