@@ -1,0 +1,86 @@
+#@ load("@ytt:json", "json")
+#@ load("@ytt:yaml", "yaml")
+#@ load("@ytt:base64", "base64")
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:template", "template")
+
+
+#! Theses are the helpers which
+#! - parse the left part string as yaml/json
+#! - apply the right part overlay on that parsed structure
+#! - encode the result as a yaml/json string again
+
+#@ def asYaml(l, r):
+#@   return yaml.encode(overlay.apply(yaml.decode(l), r))
+#@ end
+
+#@ def asJson(l, r):
+#@   return json.encode(overlay.apply(json.decode(l), r), indent=2)
+#@ end
+
+
+#! Here we execute some overlays against strings, one of which is a
+#! json document, the other onde is a yaml document
+#! In addition, we also add a new node, which we will mangle with in
+#! the next overlay step
+
+#@overlay/match by=overlay.subset({"kind":"things"})
+---
+spec:
+  #@overlay/replace via=asYaml
+  yaml_thing:
+    #@overlay/append
+    - name: three
+      value: "and we messed with it!"
+
+  #@overlay/replace via=asJson
+  json_thing:
+    #@overlay/match by=overlay.index(2)
+    - "hates"
+
+    #@overlay/append
+    - "jk, we all love json"
+
+  #@overlay/match missing_ok=True
+  new_key: ZGF0YToge30K  #! base64 for 'data: {}'
+
+
+#! We define some more helpers, which allow us to do things with base64
+#! encoded yaml/json strings. Those could come in handy in case you
+#! want to run ytt against contents of a secret or that like.
+
+#@ def asB64Yaml(l, r):
+#@   return base64.encode(asYaml(base64.decode(l),r))
+#@ end
+
+#@ def asB64Json(l, r):
+#@   return base64.encode(asJson(base64.decode(l),r))
+#@ end
+
+
+#@ def someFuncDoingThings(l, r):
+#@   res = {}
+#@   for x in range(r["start"], r["stop"], r["step"]):
+#@     res.update({
+#@       x : "some_{}".format(x)
+#@     })
+#@   end
+#@   return res
+#@ end
+
+
+#! Here we a yaml string encoded as base64, which we will parse with
+#! the `asB64Yaml` helper. Then we apply some overlay again, which
+#! happens to run a random function which replaces a node. The result
+#! will automatically encoded as a string and as base64 again.
+
+#@overlay/match by=overlay.subset({"kind":"things"})
+---
+spec:
+  #@overlay/replace via=asB64Yaml
+  new_key:
+    #@overlay/replace via=someFuncDoingThings
+    data:
+      start: 2
+      stop: 11
+      step: 3

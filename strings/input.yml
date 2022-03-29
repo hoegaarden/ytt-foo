@@ -1,0 +1,15 @@
+kind: things
+spec:
+  yaml_thing: |
+    - name: one
+      value: this is a
+    - name: two
+      vaule: yaml structure encoded as a string because why not
+
+  json_thing: |
+    [
+      "every",
+      "one",
+      "loves",
+      "json"
+    ]
