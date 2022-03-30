@@ -28,6 +28,12 @@
 #!     #@overlay/replace via=apply(codecs=[base64,yaml])
 
 #@ def apply(fn=overlay.apply, codecs=[], codecs_enc=None):
+#@   if codecs_enc == None:
+#@     codecs_to_encode = reversed(codecs)
+#@   else:
+#@     codecs_to_encode = codecs_enc
+#@   end
+#@
 #@   def _(l, r):
 #@     decoded = l
 #@
@@ -36,12 +42,6 @@
 #@     end
 #@
 #@     encoded = fn(decoded, r)
-#@
-#@     if codecs_enc == None:
-#@       codecs_to_encode = reversed(codecs)
-#@     else:
-#@       codecs_to_encode = codecs_enc
-#@     end
 #@
 #@     for c in codecs_to_encode:
 #@       encoded = c.encode(encoded)
