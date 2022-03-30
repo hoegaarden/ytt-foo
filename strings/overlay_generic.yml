@@ -2,7 +2,6 @@
 #@ load("@ytt:yaml", "yaml")
 #@ load("@ytt:base64", "base64")
 #@ load("@ytt:overlay", "overlay")
-#@ load("@ytt:template", "template")
 
 
 #! This is a generator which can be used to create functions which in turn are
